@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes alternateColorSize {
+  0%, 100% {
+    color: var(--foreground);
+    transform: scale(1);
+  }
+  50% {
+    color: gold;
+    transform: scale(2);
+  }
+}
+
+#changelife {
+  display: inline-block;
+  animation: alternateColorSize 1.5s infinite;
+}
+
