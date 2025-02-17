@@ -15,48 +15,55 @@ export const createAccount = async (req: Request, res: Response) => {
   const client = await pgPool.connect();
 
   try {
-    await client.query('BEGIN'); // Start transaction
+    await client.query('BEGIN');
 
+    // 1. Create Account
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const accountResult = await client.query(
-      'INSERT INTO accounts (email, name, last, password) VALUES ($1, $2, $3, $4) RETURNING id, email, name, last',
+      `INSERT INTO accounts (email, name, last, password)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, name, last`,
       [email, name, last, hashedPassword]
     );
 
-    await client.query(
-      'INSERT INTO teams (teamleaderemail, teamname) VALUES ($1, $2)',
+    // 2. Create Default Team
+    const teamResult = await client.query(
+      `INSERT INTO teams (teamleaderemail, teamname)
+       VALUES ($1, $2)
+       RETURNING teamid`,
       [email, "My Tasks"]
     );
-    
-    const teamid= await client.query(
-      'SELECT teamid from teams where teamleaderemail=$1 and teamname=$2',
-      [email, "My Tasks"]
-    );
+    const teamId = teamResult.rows[0].teamid;
 
+    // 3. Add User to Team
     await client.query(
-      'INSERT INTO team_members(teamid,memberemail) values($1,$2)',[teamid.rows[0].teamid,email]
-    )
+      `INSERT INTO team_members (teamid, memberemail)
+       VALUES ($1, $2)`,
+      [teamId, email]
+    );
 
     await client.query('COMMIT');
 
+    // Auto-login
     req.login(accountResult.rows[0], (err) => {
-      if (err) {
-        console.error('Auto-login error:', err);
-        return res.status(500).json({ error: 'Registration failed' });
-      }
-
-      return res.status(201).json({
-        message: 'Account created and logged in successfully',
-        user: accountResult.rows[0],
+      if (err) throw err;
+      res.status(201).json({ 
+        message: 'Account created successfully',
+        user: accountResult.rows[0]
       });
     });
+
   } catch (err) {
-    await client.query('ROLLBACK'); // Rollback transaction on error
-    console.error('Registration error:', err);
-    res.status(500).json({ error: 'Registration failed due to an internal error' });
+    await client.query('ROLLBACK');
+    
+    // Handle unique constraint violation
+    if (err === '23505') { 
+      res.status(409).json({ error: 'Email or default team already exists' });
+    } else {
+      res.status(500).json({ error: 'Registration failed' });
+    }
   } finally {
-    client.release(); // Release the client back to the pool
+    client.release();
   }
 };
 

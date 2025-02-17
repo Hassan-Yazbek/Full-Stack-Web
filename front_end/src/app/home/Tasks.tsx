@@ -1,4 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+} from "@chakra-ui/modal";
+import {
+  SelectContent,
+  SelectItem,
+  SelectRoot,
+  SelectTrigger,
+  SelectValueText,
+} from "../src/components/ui/select";
+import { FormControl, FormLabel } from "@chakra-ui/form-control";
+import {
+  Box,
+  Button,
+  createListCollection,
+  Flex,
+  Heading,
+  Input,
+  Text,
+  Textarea,
+  useDisclosure,
+  VStack,
+} from "@chakra-ui/react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface Task {
   taskid: number;
@@ -13,24 +44,42 @@ interface Task {
   admin: string;
   user_status?: string;
 }
+
+const taskSchema = z.object({
+  taskid: z.number().min(1, "Task ID is required"),
+  taskname: z.string().min(1, "Task name is required"),
+  startdate: z.string().min(1, "Start date is required"),
+  enddate: z.string().min(1, "End date is required"),
+  description: z.string().min(1, "Description is required"),
+  teamname: z.string().min(1, "Team selection is required"),
+  priority: z.string().min(1, "Priority selection is required"),
+});
+
+type TaskFormData = z.infer<typeof taskSchema>;
+
 const Tasks = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
-  const [editingMode,setEditingMode]=useState<boolean>(false);
-  const [visibility,setVisibility]=useState<boolean>(true);
+  const [editingMode, setEditingMode] = useState<boolean>(false);
+  const [visibility, setVisibility] = useState<boolean>(true);
+  const [detailsVisibility, setDetailsVisibility] = useState(true);
+  const [teamVisibility, setTeamVisibility] = useState<boolean>(true);
   const [filterType, setFilterType] = useState<"priority" | "enddate" | null>(null);
-  const [taskData, setTaskData] = useState({
-    taskid: "",
-    taskname: "",
-    startdate: "",
-    enddate: "",
-    description: "",
-    priority: "",
-    teamname: "",
-    creatoremail: "",
-    teamid: "",
+
+  const { open, onOpen, onClose } = useDisclosure();
+
+  const {
+    handleSubmit,
+    control,
+    formState: { errors },
+    reset,
+  } = useForm<TaskFormData>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      priority: "",
+    },
   });
 
   useEffect(() => {
@@ -70,23 +119,21 @@ const Tasks = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ taskid }),
       });
-  
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         if (response.status === 403) {
           console.error("Action forbidden:", data.error);
-          // Add user feedback here
           alert("You are not authorized to update this status");
           return;
         }
         throw new Error(data.error || "Failed to update status");
       }
-  
-      fetchTasks();
+
+      fetchTasks(); // Refresh the task list
     } catch (err) {
       console.error("Error updating status:", err);
-      // Add user feedback here
       alert(err || "Error updating status");
     }
   };
@@ -94,47 +141,87 @@ const Tasks = () => {
   const enableEditing = (task: Task) => {
     setEditingMode(true);
     setEditingTaskId(task.taskid);
-    setTaskData({
-      taskid: task.taskid.toString(),
+    reset({
+      taskid: task.taskid,
       taskname: task.taskname,
       startdate: task.startdate.substring(0, 10),
       enddate: task.enddate.substring(0, 10),
       description: task.description,
       priority: task.priority,
       teamname: task.teamname,
-      creatoremail: task.creatoremail,
-      teamid: task.teamid.toString(),
     });
+    setVisibility(false);
+    setDetailsVisibility(false);
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setTaskData({ ...taskData, [name]: value });
-  };
-
-  const handleSave = async () => {
+  const handleSave = async (data: TaskFormData) => {
     try {
-      setVisibility(true);
-      const response = await fetch(`http://localhost:5000/api/tasks/update/${taskData.taskid}`, {
+      // Find the task being edited
+      const taskToUpdate = tasks.find((task) => task.taskid === editingTaskId);
+  
+      if (!taskToUpdate) {
+        throw new Error("Task not found");
+      }
+  
+      const updatedTaskData = {
+        taskid: editingTaskId, // Use editingTaskId directly
+        taskname: data.taskname,
+        startdate: data.startdate,
+        enddate: data.enddate,
+        description: data.description,
+        priority: data.priority,
+        teamname: data.teamname,
+        teamid: taskToUpdate.teamid, // Use teamid from the task being edited
+      };
+  
+      console.log("Updated Task Data:", updatedTaskData);
+  
+      const response = await fetch(`http://localhost:5000/api/tasks/update/${editingTaskId}`, {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedTaskData),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update task");
+      }
+      setDetailsVisibility(true);
+      setEditingMode(false);
+      setEditingTaskId(null);
+      setVisibility(true);
+      fetchTasks();
+    } catch (err) {
+      console.error("Error updating task:");
+    }
+  };
+
+  const handleDelete = async (taskid: number) => {
+    try {
+      console.log(taskid);
+      const response = await fetch(`http://localhost:5000/api/tasks/delete/${taskid}`, {
+        method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
       });
 
       if (response.ok) {
-        setEditingMode(false);
-        setEditingTaskId(null);
-        fetchTasks();
+        fetchTasks(); // Refresh the task list
       } else {
-        console.error("Error updating task.");
+        console.error("Error deleting task.");
       }
     } catch (err) {
-      console.error("Error updating task.");
+      console.error("Error deleting task.");
     }
   };
+
+  const priorityCollection = useMemo(() => createListCollection({
+    items: [
+      { label: "Important", value: "Important" },
+      { label: "To Do", value: "ToDo" },
+      { label: "Normal", value: "Normal" },
+    ],
+  }), []);
 
   const groupedTasks = tasks.reduce((acc, task) => {
     acc[task.teamname] = acc[task.teamname] || [];
@@ -144,179 +231,320 @@ const Tasks = () => {
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
+    onOpen();
   };
 
   const TaskDetailModal = ({ task }: { task: Task }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
-        <h2 className="text-2xl font-bold mb-4 break-words">{task.taskname}</h2>
-        <strong>Start Date:</strong>
-        <p className="whitespace-pre-line break-words">{task.startdate}</p>
-        <strong>End Date:</strong>
-        <p className="whitespace-pre-line break-words">{task.enddate}</p>
-        <strong>Description:</strong>
-        <p className="whitespace-pre-line break-words">{task.description}</p>
-        <strong>Priority:</strong>
-        <p className="whitespace-pre-line break-words">{task.priority}</p>
-  
-        <button
-          onClick={() => setSelectedTask(null)}
-          className="mt-4 bg-gray-500 text-white px-4 py-2 rounded"
-        >
-          Close
-        </button>
-      </div>
-    </div>
+    <Modal isOpen={open} onClose={onClose}>
+      <ModalOverlay />
+      <ModalContent ml={"25%"} mt={"15%"} width="50%">
+        <ModalHeader></ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <VStack bg={"white"} color={"black"} rounded={"2xl"}>
+            <Text>
+              <strong>Task Name:</strong>
+            </Text>
+            <Text> {task.taskname}</Text>
+            <Text>
+              <strong>Start Date:</strong>{" "}
+            </Text>
+            <Text>{task.startdate}</Text>
+            <Text>
+              <strong>End Date:</strong>
+            </Text>
+            <Text>{task.enddate}</Text>
+            <Text>
+              <strong>Description:</strong>{" "}
+            </Text>
+            <Text>{task.description}</Text>
+            <Text>
+              <strong>Priority:</strong>
+            </Text>
+            <Text> {task.priority}</Text>
+          </VStack>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
   );
-  
 
   return (
-    <div className="tasks-container ">
-      <h1 className="text-2xl font-bold ml-5">Teams</h1>
+    <Box p={5} color={"black"}>
+      <Heading as="h1" size="xl" mb={5}>
+        Teams
+      </Heading>
 
-      <div className="mt-4">
-        {Object.keys(groupedTasks).map((teamName) => (
-          <div
-            key={teamName}
-            className="border p-3 my-2 bg-gray-100 cursor-pointer hover:bg-gray-200"
-            onClick={() => setSelectedTeam(selectedTeam === teamName ? null : teamName)}
+      <VStack align="stretch">
+        {teamVisibility ? (
+          Object.keys(groupedTasks).map((teamName) => (
+            <Box
+              w={"5xl"}
+              key={teamName}
+              p={3}
+              bg="gray.100"
+              borderRadius="md"
+              _hover={{ bg: "gray.200" }}
+              cursor="pointer"
+              onClick={() => {
+                setSelectedTeam(teamName);
+                setTeamVisibility(false);
+              }}
+            >
+              <Heading as="h2" size="lg">
+                {teamName}
+              </Heading>
+            </Box>
+          ))
+        ) : (
+          <Box
+            w={"5xl"}
+            p={3}
+            key={selectedTeam}
+            bg="gray.100"
+            borderRadius="md"
+            _hover={{ bg: "gray.200" }}
+            cursor="pointer"
+            onClick={() => {
+              setTeamVisibility(true);
+            }}
           >
-            <h2 className="text-lg font-semibold w-screen ml-5">{teamName}</h2>
-          </div>
-        ))}
-      </div>
+            <Heading as="h2" size="lg">
+              {selectedTeam}
+            </Heading>
+          </Box>
+        )}
+      </VStack>
 
-      {selectedTeam && (
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold ml-5">{selectedTeam} - Tasks</h2>
-          <div className="flex gap-2 my-4  ml-5">
-            <button
-              onClick={() => setFilterType(current => current === 'priority' ? null : 'priority')}
-              className={`px-4 py-2 ${filterType === 'priority' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+      {teamVisibility === false && selectedTeam && (
+        <Box mt={6}>
+          <Heading as="h2" size="lg" mb={5}>
+            {selectedTeam} - Tasks
+          </Heading>
+          <Flex gap={2} mb={4}>
+            <Button
+              onClick={() => setFilterType((current) => (current === "priority" ? null : "priority"))}
+              bg={filterType === "priority" ? "green.500" : "gray.100"}
             >
               Sort by Priority
-            </button>
-            <button
-              onClick={() => setFilterType(current => current === 'enddate' ? null : 'enddate')}
-              className={`px-4 py-2 ${filterType === 'enddate' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+            </Button>
+            <Button
+              onClick={() => setFilterType((current) => (current === "enddate" ? null : "enddate"))}
+              bg={filterType === "enddate" ? "green.500" : "gray.100"}
             >
               Sort by End Date
-            </button>
-          </div>
-          <ul className="flex flex-wrap">
+            </Button>
+          </Flex>
+          <Flex wrap="wrap" gap={4}>
             {groupedTasks[selectedTeam]
               .slice()
               .sort((a, b) => {
-                if (filterType === 'priority') {
-                  const priorityOrder: Record<'Important' | 'ToDo' | 'Normal', number> = {
+                if (filterType === "priority") {
+                  const priorityOrder: Record<"Important" | "ToDo" | "Normal", number> = {
                     Important: 0,
                     ToDo: 1,
                     Normal: 2,
                   };
-                
-                  return (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3) - 
-                         (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3);
+
+                  return (
+                    (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3) -
+                    (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3)
+                  );
                 }
-                
-                if (filterType === 'enddate') {
+
+                if (filterType === "enddate") {
                   return new Date(a.enddate).getTime() - new Date(b.enddate).getTime();
                 }
                 return 0;
               })
               .map((task) => (
-                <li 
-                key={task.taskid} 
-                className="flex-shrink-0 w-full md:w-96 p-4 cursor-pointer"
-                onClick={() => handleTaskClick(task)}
-              >{
-                  <div className=" text-black border-2 h-fit w-64 p-3">
-                    <strong>Task Name:</strong>
+                <Box
+                  key={task.taskid}
+                  p={4}
+                  borderWidth={1}
+                  borderRadius="md"
+                  cursor="pointer"
+                  onClick={editingTaskId !== task.taskid ? () => handleTaskClick(task) : undefined}
+                >
+                  <VStack align="start">
                     {editingTaskId === task.taskid ? (
-                      <input type="text" name="taskname" value={taskData.taskname} onChange={handleChange} className="border p-1 w-full" />
+                      <form   
+                      onSubmit={handleSubmit(handleSave)}
+                      onClick={(e) => e.stopPropagation()}>
+                        <VStack justify={"center"} w={"full"}>
+                          {/* Task Name Field */}
+                          <FormControl isInvalid={!!errors.taskname} w={"inherit"}>
+                            <FormLabel fontWeight="medium">Task Name</FormLabel>
+                            <Controller
+                              name="taskname"
+                              control={control}
+                              render={({ field }) => (
+                                <Input
+                                  {...field}
+                                  placeholder="Task Name"
+                                  bg={"gray.100"}
+                                />
+                              )}
+                            />
+                          </FormControl>
+
+                          {/* Start Date Field */}
+                          <FormControl isInvalid={!!errors.startdate} w={"inherit"}>
+                            <FormLabel color="gray.700" fontWeight="medium">Start Date</FormLabel>
+                            <Controller
+                              name="startdate"
+                              control={control}
+                              render={({ field }) => (
+                                <Input
+                                  {...field}
+                                  type="date"
+                                  bg={"gray.100"}
+                                />
+                              )}
+                            />
+                          </FormControl>
+
+                          {/* End Date Field */}
+                          <FormControl isInvalid={!!errors.enddate} w={"inherit"}>
+                            <FormLabel color="gray.700" fontWeight="medium">End Date</FormLabel>
+                            <Controller
+                              name="enddate"
+                              control={control}
+                              render={({ field }) => (
+                                <Input
+                                  {...field}
+                                  type="date"
+                                  bg={"gray.100"}
+                                />
+                              )}
+                            />
+                          </FormControl>
+
+                          {/* Description Field */}
+                          <FormControl isInvalid={!!errors.description} w={"inherit"}>
+                            <FormLabel color="gray.700" fontWeight="medium">Description</FormLabel>
+                            <Controller
+                              name="description"
+                              control={control}
+                              render={({ field }) => (
+                                <Textarea
+                                  {...field}
+                                  placeholder="Description"
+                                  rows={4}
+                                  bg={"gray.100"}
+                                />
+                              )}
+                            />
+                          </FormControl>
+
+                          {/* Priority Selection */}
+                          <FormControl isInvalid={!!errors.priority} w={"inherit"}>
+                            <FormLabel color="gray.700" fontWeight="medium">Priority</FormLabel>
+                            <Controller
+                              name="priority"
+                              control={control}
+                              render={({ field }) => (
+                                <SelectRoot
+                                  {...field}
+                                  value={field.value ? [field.value] : []}
+                                  onValueChange={({ value }) => field.onChange(value[0])}
+                                  collection={priorityCollection}
+                                  bg={"gray.100"}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValueText placeholder="Select priority" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {priorityCollection.items.map((priority) => (
+                                      <SelectItem key={priority.value} item={priority}>
+                                        {priority.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </SelectRoot>
+                              )}
+                            />
+                          </FormControl>
+
+                          <Button
+                            type="submit"
+                            colorScheme="yellow"
+                            width="full"
+                            mt={4}
+                            color={"white"}
+                            bg={"yellow.600"}
+                          >
+                            Save
+                          </Button>
+                        </VStack>
+                      </form>
                     ) : (
-                      <p>{task.taskname}</p>
-                    )}
-
-                    <strong>Team Leader:</strong> <p>{task.creatoremail}</p>
-
-                    <strong>Start Date:</strong>
-                    {editingTaskId === task.taskid ? (
-                      <input type="date" name="startdate" value={taskData.startdate} onChange={handleChange} className="border p-1 w-full" />
-                    ) : (
-                      <p>{task.startdate.substring(0, 10)}</p>
-                    )}
-
-                    <strong>End Date:</strong>
-                    {editingTaskId === task.taskid ? (
-                      <input type="date" name="enddate" value={taskData.enddate} onChange={handleChange} className="border p-1 w-full" />
-                    ) : (
-                      <p>
-                        {task.enddate.substring(0, 10)}
-                        {isExpired(task.enddate) && <span className="text-red-500 ml-2">Expired</span>}
-                      </p>
-                    )}
-
-                    {/* <strong>Description:</strong>
-                    {editingTaskId === task.taskid ? (
-                    <textarea
-                      name="description"
-                      value={taskData.description}
-                      onChange={handleChange}
-                      onInput={(e) => {
-                        const target = e.target as HTMLTextAreaElement;
-                        target.style.height = "auto";
-                        target.style.height = `${target.scrollHeight}px`;
-                      }}
-                      className="border p-1 w-full overflow-hidden resize-none"
-                    />
-
-                     ) : (
-                    <p 
-                    className="overflow-y-auto max-h-24 break-words"
-                    >
-                    {task.description}
-                    </p>
-                     )} */}
-
-                    <strong>Priority:</strong>
-                    {editingTaskId === task.taskid ? (
-                      <select name="priority" value={taskData.priority} onChange={handleChange} className="border p-1 w-full">
-                        <option value="Important">Important</option>
-                        <option value="ToDo">To Do</option>
-                        <option value="Normal">Normal</option>
-                      </select>
-                    ) : (
-                      <p>{task.priority}</p>
-                    )}
-
-                    {task.admin === "true" && editingTaskId === task.taskid && (
-                      <button onClick={handleSave} className="bg-blue-500 text-white px-4 py-2 mt-2">Save</button>
-                    )}
-                      {visibility && (
-                        <button
-                          onClick={() => handleUpdateStatus(task.taskid)}
-                          className={`px-4 py-2 mt-2 ${
-                            task.user_status === "Done"
-                              ? "bg-green-500 text-white"
-                              : "bg-gray-200 text-black"
-                          }`}
+                      // View mode
+                      <>
+                        <Text>
+                          <strong>Task Name:</strong> {task.taskname}
+                        </Text>
+                        <Text>
+                          <strong>Team Leader:</strong> {task.creatoremail}
+                        </Text>
+                        <Text>
+                          <strong>Start Date:</strong> {task.startdate.substring(0, 10)}
+                        </Text>
+                        <Text>
+                          <strong>End Date:</strong> {task.enddate.substring(0, 10)}{" "}
+                          {isExpired(task.enddate) && (
+                            <Text as="span" color="red.500">
+                              Expired
+                            </Text>
+                          )}
+                        </Text>
+                        <Text>
+                          <strong>Priority:</strong> {task.priority}
+                        </Text>
+                        {task.admin === "true" && (
+                          <><Button
+                              mt={"10%"}
+                              w={"full"}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent task click event from firing
+                                enableEditing(task);
+                                setDetailsVisibility(false);
+                              } }
+                              bg="green.500"
+                            >
+                              Edit
+                            </Button><Button
+                              w={"full"}
+                              bg="red.500"
+                              color="white"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent task click event from firing
+                                handleDelete(task.taskid);
+                              } }
+                            >
+                                Delete
+                              </Button></>
+                        )}
+                        <Button
+                          w={"full"}
+                          bg={task.user_status === "Done" ? "green.500" : "gray.200"}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent task click event from firing
+                            handleUpdateStatus(task.taskid);
+                          }}
                         >
                           {task.user_status === "Done" ? "Undone" : "Done"}
-                        </button>
-                      )}
+                        </Button>
 
-                    {task.admin === "true" && visibility===true && (
-                      <button onClick={() => {enableEditing(task);setVisibility(false)}} className="bg-green-500 text-white px-4 py-2 ml-2">Edit</button>
+                      </>
                     )}
-                  </div>
-              }
-              </li>
+                  </VStack>
+                </Box>
               ))}
-          </ul>
-        </div>
+          </Flex>
+        </Box>
       )}
-        {!editingMode && selectedTask && <TaskDetailModal task={selectedTask} />}
-    </div>
+      {selectedTask && detailsVisibility && <TaskDetailModal task={selectedTask} />}
+    </Box>
   );
 };
 

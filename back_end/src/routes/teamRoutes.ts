@@ -2,10 +2,11 @@ import express from "express";
 import { RequestHandler } from "express";
 import {
   createTeam,
-  addTeamMember,
+  addMember,
   removeMember,
   updateTeam,
   getTeams,
+  deleteTeam,
 } from "../controller/teamController";
 
 const router = express.Router();
@@ -14,7 +15,8 @@ const router = express.Router();
 router.get("/getMembers", getTeams as RequestHandler);
 router.post("/create", createTeam as RequestHandler);
 router.put("/:teamId",updateTeam as RequestHandler);
-router.post("/:teamId/addMember",addTeamMember as RequestHandler);
-router.delete("/:teamId/removeMember/:email",removeMember as RequestHandler);
+router.post("/:teamId/addMember",addMember as RequestHandler);
+router.put("/:teamId/removeMember/:email",removeMember as RequestHandler);
+router.delete("/delete/:teamId",deleteTeam as unknown as RequestHandler);
 
 export default router;

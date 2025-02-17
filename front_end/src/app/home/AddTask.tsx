@@ -1,180 +1,268 @@
-//frontend/src/app/home/AddTask.tsx
 import React, { useEffect, useState } from "react";
+import { FormControl } from '@chakra-ui/form-control';
+import { FormLabel } from '@chakra-ui/form-control';
+import { toaster } from "../src/components/ui/toaster"
+import { createListCollection } from "@chakra-ui/react"
+import { useMemo } from "react"
+import { useAsync } from "react-use"
+import {
+  SelectContent,
+  SelectItem,
+  SelectRoot,
+  SelectTrigger,
+  SelectValueText,
+} from "../src/components/ui/select"
+import {
+  Box,
+  Button,
+  Heading,
+  Input,
+  Textarea,
+  VStack,
+} from "@chakra-ui/react";
+import { Controller, useForm } from "react-hook-form"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+
+const taskSchema = z.object({
+  taskName: z.string().min(1, "Task name is required"),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  description: z.string().min(1, "Description is required"),
+  teamName: z.string().min(1, "Team selection is required"), // Single string, not an array
+  priority: z.string().min(1, "Priority selection is required"),
+});
+
+type TaskFormData = z.infer<typeof taskSchema>;
 
 const AddTask = () => {
-  const [tasks, setTasks] = useState<any[]>([]);
   const [teamNames, setTeamNames] = useState<{ teamname: string }[]>([]);
-  const [taskData, setTaskData] = useState({
-    taskName: "",
-    startDate: "",
-    endDate: "",
-    description: "",
-    teamName: "",
-    priority: "",
+
+  const { handleSubmit, control, formState: { errors }, reset } = useForm<TaskFormData>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      taskName: "",
+      startDate: "",
+      endDate: "",
+      description: "",
+      teamName: "", // Initialize with an empty string
+      priority: "", // Initialize with an empty string
+    },
   });
 
-  // Fetch team names when component mounts.
-  useEffect(() => {
-    const fetchTeam = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/tasks/team", {
-          method: "GET",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data = await response.json();
-        console.log("Fetched teams:", data); // Debugging line
-    
-        if (Array.isArray(data)) {
-          setTeamNames(data); // ✅ Set state only if data is an array
-        } else {
-          console.error("Unexpected API response format:", data);
-          setTeamNames([]); // Ensure state remains an array
-        }
-      } catch (err) {
-        console.error("Error in fetching teams:", err);
-        setTeamNames([]); // Prevents errors on .map()
-      }
-    };
-    fetchTeam();
+  // Fetch team names
+  useAsync(async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/tasks/team", {
+        method: "GET",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await response.json();
+      setTeamNames(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error in fetching teams:", err);
+      setTeamNames([]);
+    }
   }, []);
 
-  // Update the form data when an input changes.
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setTaskData({ ...taskData, [e.target.name]: e.target.value });
-  };
+  // Create collections for select components
+  const teamCollection = useMemo(() => createListCollection({
+    items: teamNames,
+    itemToString: (item) => item.teamname,
+    itemToValue: (item) => item.teamname,
+  }), [teamNames]);
 
-  // Submit the form and send the task data to the backend.
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const priorityCollection = useMemo(() => createListCollection({
+    items: [
+      { label: "Important", value: "Important" },
+      { label: "To Do", value: "ToDo" },
+      { label: "Normal", value: "Normal" },
+    ],
+  }), []);
+
+  // Submit handler
+  const onSubmit = async (data: TaskFormData) => {
     try {
-      // Optionally update local tasks state
-      setTasks([...tasks, taskData]);
-      
-      // Send task data directly (not wrapped in an extra "taskData" property)
       const result = await fetch("http://localhost:5000/api/tasks/create", {
         method: "POST",
         credentials: 'include',
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
+        body: JSON.stringify(data),
       });
 
       if (result.ok) {
-        alert(`Task Added To ${taskData.teamName}`);
-      } else {
-        console.error("Failed to add task");
+        toaster.create({
+          title: "Task Added",
+          description: `Task added to ${data.teamName}`,
+          duration: 3000,
+        });
+        reset();
       }
-
-      // Reset the form.
-      setTaskData({
-        taskName: "",
-        startDate: "",
-        endDate: "",
-        description: "",
-        teamName: "",
-        priority: "",
-      });
     } catch (err) {
+      toaster.create({
+        title: "Error",
+        description: "Failed to add task",
+        duration: 3000,
+      });
       console.error("Error while adding task:", err);
     }
   };
 
   return (
-    <div className="mr-20 mt-1 ml-80 p-6 bg-white rounded-lg shadow-lg w-96">
-      <h1 className="text-yellow-600 text-2xl font-bold mb-4">Add Task</h1>
-      <form className="flex flex-col space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">Task Name</label>
-          <input
-            type="text"
-            name="taskName"
-            value={taskData.taskName}
-            onChange={handleChange}
-            placeholder="Enter task name"
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          />
-        </div>
+    <Box
+      mr={20}
+      mt={1}
+      ml={80}
+      p={6}
+      bg="white"
+      color={"black"}
+      borderRadius="lg"
+      boxShadow="lg"
+      w="96"
+    >
+      <Heading color="yellow.600" fontSize="2xl" fontWeight="bold" mb={4}>
+        Add Task
+      </Heading>
 
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">Date Of Start</label>
-          <input
-            type="date"
-            name="startDate"
-            value={taskData.startDate}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          />
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <VStack justify={"center"} w={"full"}>
+          {/* Task Name Field */}
+          <FormControl isInvalid={!!errors.taskName} w={"inherit"}>
+            <FormLabel fontWeight="medium">Task Name</FormLabel>
+            <Controller
+              name="taskName"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  placeholder="Enter task name"
+                  bg={"gray.100"}
+                />
+              )}
+            />
+          </FormControl>
 
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">Date Of End</label>
-          <input
-            type="date"
-            name="endDate"
-            value={taskData.endDate}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          />
-        </div>
+          {/* Start Date Field */}
+          <FormControl isInvalid={!!errors.startDate} w={"inherit"}>
+            <FormLabel color="gray.700" fontWeight="medium">Start Date</FormLabel>
+            <Controller
+              name="startDate"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  type="date"
+                  bg={"gray.100"}
+                />
+              )}
+            />
+          </FormControl>
 
-        <div>
-          <label className="block text-gray-700 font-medium mb-1" htmlFor="teamName">
-            Target
-          </label>
-          <select
-            id="teamName"
-            name="teamName"
-            value={taskData.teamName}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+          {/* End Date Field */}
+          <FormControl isInvalid={!!errors.endDate} w={"inherit"}>
+            <FormLabel color="gray.700" fontWeight="medium">End Date</FormLabel>
+            <Controller
+              name="endDate"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  type="date"
+                  bg={"gray.100"}
+                />
+              )}
+            />
+          </FormControl>
+
+          {/* Team Selection */}
+          <FormControl isInvalid={!!errors.teamName} w={"inherit"}>
+            <FormLabel color="gray.700" fontWeight="medium">Team</FormLabel>
+            <Controller
+              name="teamName"
+              control={control}
+              render={({ field }) => (
+                <SelectRoot
+                  {...field}
+                  value={field.value ? [field.value] : []} // Convert single string to array
+                  onValueChange={({ value }) => field.onChange(value[0])} // Convert array back to single string
+                  collection={teamCollection}
+                  bg={"gray.100"}
+                >
+                  <SelectTrigger>
+                    <SelectValueText placeholder="Select team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamCollection.items.map((team) => (
+                      <SelectItem key={team.teamname} item={team}>
+                        {team.teamname}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
+              )}
+            />
+          </FormControl>
+
+          {/* Description Field */}
+          <FormControl isInvalid={!!errors.description} w={"inherit"}>
+            <FormLabel color="gray.700" fontWeight="medium">Description</FormLabel>
+            <Controller
+              name="description"
+              control={control}
+              render={({ field }) => (
+                <Textarea
+                  {...field}
+                  placeholder="Enter task description"
+                  rows={4}
+                  bg={"gray.100"}
+                />
+              )}
+            />
+          </FormControl>
+
+          {/* Priority Selection */}
+          <FormControl isInvalid={!!errors.priority} w={"inherit"}>
+            <FormLabel color="gray.700" fontWeight="medium">Priority</FormLabel>
+            <Controller
+              name="priority"
+              control={control}
+              render={({ field }) => (
+                <SelectRoot
+                  {...field}
+                  value={field.value ? [field.value] : []} // Convert single string to array
+                  onValueChange={({ value }) => field.onChange(value[0])} // Convert array back to single string
+                  collection={priorityCollection}
+                  bg={"gray.100"}
+                >
+                  <SelectTrigger>
+                    <SelectValueText placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorityCollection.items.map((priority) => (
+                      <SelectItem key={priority.value} item={priority}>
+                        {priority.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
+              )}
+            />
+          </FormControl>
+
+          <Button
+            type="submit"
+            colorScheme="yellow"
+            width="full"
+            mt={4}
+            color={"white"}
+            bg={"yellow.600"}
           >
-            <option value="">Select Task Type</option>
-            {teamNames.map((team, index) => (
-              <option key={index} value={team.teamname}>
-                {team.teamname}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">Description</label>
-          <textarea
-            name="description"
-            value={taskData.description}
-            onChange={handleChange}
-            placeholder="Enter task description"
-            rows={4}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          ></textarea>
-        </div>
-
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">Priority</label>
-          <select
-            id="priority"
-            name="priority"
-            value={taskData.priority}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          >
-            <option value="">Select Your Task Priority</option>
-            <option value="Important">Important</option>
-            <option value="ToDo">To Do</option>
-            <option value="Normal">Normal</option>
-          </select>
-        </div>
-
-        <button
-          type="submit"
-          className="w-full bg-yellow-600 text-white font-bold py-2 rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-        >
-          Add Task
-        </button>
+            Add Task
+          </Button>
+        </VStack>
       </form>
-    </div>
+    </Box>
   );
 };
 

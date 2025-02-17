@@ -1,39 +1,53 @@
 //backend/src/controller/taskController
 import { Request, Response } from "express";
 import { pgPool } from "../index";
-
-
+import { error } from "console";
 
 export const createTask = async (req: Request, res: Response) => {
   const email = req.session.user?.email;
-  const { taskName, startDate, endDate, description, teamName,priority } = req.body;
-  let teamid,taskid;
+  const { taskName, startDate, endDate, description, teamName, priority } = req.body;
+  let teamid, taskid;
 
   try {
-    const getdata=await pgPool.query(
-      "select teamid from teams where teamleaderemail=$1 and teamname=$2",[email,teamName]
+    // Get team ID
+    const getdata = await pgPool.query(
+      "SELECT teamid FROM teams WHERE teamleaderemail=$1 AND teamname=$2",
+      [email, teamName]
     );
-    if(getdata){
-      teamid=getdata.rows[0].teamid;
+
+    if (getdata.rows.length === 0) {
+      return res.status(404).json({ error: "Team not found or unauthorized" });
     }
+
+    teamid = getdata.rows[0].teamid;
+
+    // Insert into tasks and return the inserted task
     const insertToTasks = await pgPool.query(
-      "INSERT INTO tasks (taskname, startdate, enddate, description,priority, creatoremail,teamid) VALUES ($1, $2, $3, $4, $5, $6,$7) RETURNING *",
-      [taskName, startDate, endDate, description, priority,email, teamid]
+      "INSERT INTO tasks (taskname, startdate, enddate, description, priority, creatoremail, teamid) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING taskid",
+      [taskName, startDate, endDate, description, priority, email, teamid]
     );
-    const getTaskId=await pgPool.query(
-      "SELECT taskid FROM tasks WHERE teamid=$1 AND creatoremail=$2 AND taskname=$3 ORDER BY taskid DESC LIMIT 1;"
-      ,[teamid,email,taskName]
+
+    taskid = insertToTasks.rows[0].taskid;
+
+    // Get team members
+    const members = await pgPool.query(
+      "SELECT memberemail FROM team_members WHERE teamid=$1",
+      [teamid]
     );
-    taskid=getTaskId.rows[0].taskid;
-    const inserIntoTeam =await pgPool.query(
-      "Insert into team_tasks (memberemail,taskid,status) values ($1,$2,'Not Done')",[email,taskid]
-    )
-    if(inserIntoTeam){
-      res.status(201).json(insertToTasks.rows[0]);
+
+    // Assign task to each team member
+    for (const member of members.rows) {
+      await pgPool.query(
+        "INSERT INTO team_tasks (memberemail, taskid, status) VALUES ($1, $2, 'Not Done')",
+        [member.memberemail, taskid]
+      );
     }
-    res.status(404);
+
+    return res.status(201).json({ message: "Task created successfully" });
+
   } catch (err) {
-    res.status(500).json({ error: err });
+    console.error("Error creating task:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -84,7 +98,8 @@ export const getTask = async (req: Request, res: Response) => {
 export const getteam = async (req: Request, res: Response) => {
   const email = req.session.user?.email;
   try {
-    const result = await pgPool.query("SELECT teamname FROM teams t,team_members tm WHERE t.teamid=tm.teamid AND memberemail = $1 ", [email]);
+    const result = await pgPool.query(
+      "SELECT teamname FROM teams t,team_members tm WHERE t.teamid=tm.teamid AND memberemail = $1 and t.teamleaderemail = $1", [email]);
     return res.status(200).json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err });
@@ -93,32 +108,41 @@ export const getteam = async (req: Request, res: Response) => {
 
 export const updateTask = async (req: Request, res: Response) => {
   const email = req.session.user?.email;
+  console.log(email)
   const { taskname, startdate, enddate, description, teamname, priority, teamid } = req.body;
-  const taskid = req.params.taskid;  // Extract taskid from the URL params
+  const taskid = req.params.taskid; // Extract taskid from URL params
+
+  // Validate required fields
+  if (!taskname || !startdate || !enddate || !description || !priority || !teamid) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
 
   try {
+    console.log(teamid);
     const taskUpdateResult = await pgPool.query(
-      "UPDATE tasks SET taskname = $1, startdate = $2, enddate = $3, description = $4, priority = $5 WHERE taskid = $6 AND creatoremail = $7 AND teamid = $8 RETURNING *",
-      [taskname, startdate, enddate, description, priority, taskid, email, teamid]
+      "UPDATE tasks SET taskname = $1, startdate = $2, enddate = $3, description = $4, priority = $5 WHERE taskid = $6 AND teamid=$7 RETURNING *",
+      [taskname, startdate, enddate, description, priority, taskid,teamid]
     );
 
+    // Check if the task was updated
+    if (taskUpdateResult.rows.length === 0) {
+      return res.status(404).json({ error: "Task not found or not authorized to update this task" });
+    }
+
+    // Update the team (if necessary)
     const teamUpdateResult = await pgPool.query(
       "UPDATE teams SET teamname = $1 WHERE teamid = $2 RETURNING *",
       [teamname, teamid]
     );
 
-    if (taskUpdateResult.rows.length === 0) {
-      return res.status(404).json({ error: "Task not found or not authorized to update this task" });
-    }
-
-    // You might only want to send the updated task in the response (if team was updated separately)
+    // Send response
     res.status(200).json({
       task: taskUpdateResult.rows[0],
-      team: teamUpdateResult.rows[0]
+      team: teamUpdateResult.rows[0],
     });
   } catch (err) {
-    console.error("Error updating task:", err);
-    res.status(500).json({ error: "Failed to update task" });
+    console.error("Error updating task:", error);
+    res.status(500).json({ error: "Failed to update task", details: error });
   }
 };
 
@@ -127,7 +151,6 @@ export const updateStatus = async (req: Request, res: Response) => {
   const { taskid } = req.body;
 
   try {
-    console.log(taskid);
     const currentStatus = await pgPool.query(
       "SELECT status FROM team_tasks WHERE taskid = $1 AND memberemail = $2",
       [taskid, email]
@@ -150,16 +173,18 @@ export const updateStatus = async (req: Request, res: Response) => {
 
 export const deleteTask = async (req: Request, res: Response) => {
   const email = req.session.user?.email;
-  const { taskName } = req.params;
+  console.log(email);
+  const { taskid } = req.params;
 
   try {
-    const result = await pgPool.query(
-      "DELETE FROM tasks WHERE taskname = $1 AND creatoremail = $2 RETURNING *",
-      [taskName, email]
+    await pgPool.query(
+      "DELETE FROM team_tasks WHERE taskid = $1 RETURNING *",
+      [taskid]
     );
-    const result1 = await pgPool.query(
-      "DELETE FROM team_tasks WHERE taskName = $1 AND creatoremail = $2 RETURNING *",
-      [taskName, email]
+
+    const result = await pgPool.query(
+      "DELETE FROM tasks WHERE taskid = $1 RETURNING *",
+      [taskid]
     );
 
     res.status(200).json({ message: "Task deleted successfully", task: result.rows[0] });

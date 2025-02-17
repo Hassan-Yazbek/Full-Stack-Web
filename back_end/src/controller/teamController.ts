@@ -42,7 +42,7 @@ export const updateTeam = async (req: Request, res: Response) => {
   const leaderEmail = req.session.user?.email;
 
   try {
-    // Verify current user is team leader
+    // Verify requester is team leader
     const teamCheck = await pgPool.query(
       "SELECT 1 FROM teams WHERE teamid = $1 AND teamleaderemail = $2",
       [teamId, leaderEmail]
@@ -140,17 +140,40 @@ export const createTeam = async (req: Request, res: Response) => {
   }
 };
 
-export const addTeamMember = async (req: Request, res: Response) => {
+export const addMember = async (req: Request, res: Response) => {
   const { teamId } = req.params;
   const { email } = req.body;
+  const leaderEmail = req.session.user?.email;
 
   try {
+    // Verify requester is team admin
+    const teamCheck = await pgPool.query(
+      "SELECT 1 FROM teams WHERE teamid = $1 AND teamleaderemail = $2",
+      [teamId, leaderEmail]
+    );
+    
+    if (teamCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    // Check if email exists
+    const userCheck = await pgPool.query(
+      "SELECT 1 FROM accounts WHERE email = $1",
+      [email]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     await pgPool.query(
       "INSERT INTO team_members (teamid, memberemail) VALUES ($1, $2)",
       [teamId, email]
     );
+    
     res.status(201).json({ message: "Member added" });
   } catch (err) {
+    console.error("Error adding member:", err);
     res.status(500).json({ error: "Failed to add member" });
   }
 };
@@ -160,6 +183,10 @@ export const removeMember = async (req: Request, res: Response) => {
   const { email } = req.params;
 
   try {
+    const tasks=await pgPool.query("select taskid from tasks where teamid = $1", [teamId]);
+    for (const row of tasks.rows) {
+      await pgPool.query("DELETE FROM team_tasks WHERE taskid = $1 and memberemail=$2", [row.taskid,email]);
+    }
     await pgPool.query(
       "DELETE FROM team_members WHERE teamid = $1 AND memberemail = $2",
       [teamId, email]
@@ -167,5 +194,41 @@ export const removeMember = async (req: Request, res: Response) => {
     res.status(200).json({ message: "Member removed" });
   } catch (err) {
     res.status(500).json({ error: "Failed to remove member" });
+  }
+};
+
+export const deleteTeam = async (req: Request, res: Response) => {
+  const { teamId } = req.params;
+  const leaderEmail = req.session.user?.email;
+
+  try {
+    // Verify that the requester is the team admin
+    const teamCheck = await pgPool.query(
+      "SELECT 1 FROM teams WHERE teamid = $1 AND teamleaderemail = $2",
+      [teamId, leaderEmail]
+    );
+
+    if (teamCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    // Get all task IDs for this team
+    const tasksResult = await pgPool.query(
+      "SELECT taskid FROM tasks WHERE teamid = $1",
+      [teamId]
+    );
+
+    for (const row of tasksResult.rows) {
+      await pgPool.query("DELETE FROM team_tasks WHERE taskid = $1", [row.taskid]);
+    }
+
+    await pgPool.query("DELETE FROM tasks WHERE teamid = $1", [teamId]);
+    await pgPool.query("DELETE FROM team_members WHERE teamid = $1", [teamId]);
+    await pgPool.query("DELETE FROM teams WHERE teamid = $1", [teamId]);
+
+    return res.status(200).json({ message: "Team deleted" });
+  } catch (err) {
+    console.error("Error deleting team:", err);
+    return res.status(500).json({ error: "Failed to delete team" });
   }
 };

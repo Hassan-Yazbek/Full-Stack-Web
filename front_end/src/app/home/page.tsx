@@ -11,6 +11,7 @@ import AddTask from './AddTask';
 import Inbox from './Inbox';
 import Team from './TeamMembers';
 import Tasks from './Tasks';
+import TodaysWork from './TodaysWorks';
 
 const Home = () => {
   const [activeSection, setActiveSection] = useState<string>("Welcome");
@@ -76,9 +77,7 @@ const Home = () => {
             {activeSection === "Inbox" && <Inbox />}
             {activeSection === "Tasks" && <Tasks />} 
             {activeSection === "Team Members" && <Team />}
-            {activeSection === "Today's Work" && (
-              <h1 className="text-yellow-600 text-3xl">Today's Work</h1>
-            )}
+            {activeSection === "Today's Work" && <TodaysWork />}
           </div>
         </div>
 

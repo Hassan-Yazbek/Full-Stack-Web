@@ -1,4 +1,28 @@
 import React, { useState, useEffect } from "react";
+import { Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,} from "@chakra-ui/modal"
+import { Toaster, toaster } from "../src/components/ui/toaster"
+import {
+  Box,
+  Button,
+  Input,
+  Select,
+  useDisclosure,
+  VStack,
+  HStack,
+  Text,
+  Badge,
+  Flex,
+  Spacer,
+  IconButton,
+} from "@chakra-ui/react";
+import { AddIcon, DeleteIcon, ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
+import { FormControl, FormLabel } from "@chakra-ui/form-control";
 
 interface Team {
   teamid: number;
@@ -22,8 +46,17 @@ const Teams = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTeam, setNewTeam] = useState({
     name: "",
-    members: [""]
+    members: [""],
   });
+
+  const { open: isOpenMember, onOpen: onOpenMember, onClose: onCloseMember } = useDisclosure();
+  const { open: isOpenTeam, onOpen: onOpenTeam, onClose: onCloseTeam } = useDisclosure();
+  const [memberToRemove, setMemberToRemove] = useState<{ teamId: number; email: string } | null>(null);
+  const [teamToDelete, setTeamToDelete] = useState<number | null>(null);
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+
+  const showSuccess = (message: string) => toaster.create({ title: message, duration: 3000 });
+  const showError = (message: string) => toaster.create({ title: message, duration: 3000 });
 
   useEffect(() => {
     fetchTeams();
@@ -33,16 +66,13 @@ const Teams = () => {
     try {
       const response = await fetch("http://localhost:5000/api/teams/getMembers", {
         method: "GET",
-        credentials: "include"
+        credentials: "include",
       });
+      if (!response.ok) throw new Error("Failed to fetch teams");
       const data = await response.json();
-      const teamsWithMembers = data.map((team: { members: any; }) => ({
-        ...team,
-        members: team.members || []
-      }));
-      setTeams(Array.isArray(teamsWithMembers) ? teamsWithMembers : []);
+      setTeams(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("Error fetching teams:", err);
+      showError(err instanceof Error ? err.message : "Error fetching teams");
     }
   };
 
@@ -54,10 +84,10 @@ const Teams = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           teamName: newTeam.name,
-          members: newTeam.members.filter(email => email)
-        })
+          members: newTeam.members.filter((email) => email),
+        }),
       });
-      
+
       if (response.ok) {
         setShowCreateForm(false);
         setNewTeam({ name: "", members: [""] });
@@ -70,170 +100,367 @@ const Teams = () => {
 
   const handleUpdateTeam = async (teamId: number, field: string, value: string) => {
     try {
-      await fetch(`http://localhost:5000/api/teams/${teamId}`, {
+      const response = await fetch(`http://localhost:5000/api/teams/${teamId}`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value })
+        body: JSON.stringify({ [field]: value }),
       });
+
+      if (!response.ok) throw new Error(await response.text());
+      showSuccess("Team updated successfully!");
       fetchTeams();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Failed to update team");
+    }
+  }
+
+  const handleRemoveMember = async () => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/teams/${memberToRemove?.teamId}/removeMember/${memberToRemove?.email}`,
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (response.ok) {
+        fetchTeams();
+        setMemberToRemove(null);
+        onCloseMember();
+      } else {
+        console.error("Failed to update team:", await response.json());
+      }
     } catch (err) {
       console.error("Error updating team:", err);
     }
   };
 
-  const confirmRemoveMember = (teamId: number, memberEmail: string) => {
-    if (window.confirm("Are you sure you want to remove this member?")) {
-      handleUpdateTeam(teamId, 'removeMember', memberEmail);
+  const handleAddMember = async (teamId: number) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/teams/${teamId}/addMember`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newMemberEmail }),
+      });
+      if (response.ok) {
+        fetchTeams();
+        setNewMemberEmail("");
+      }
+    } catch (err) {
+      console.error("Error adding member:", err);
     }
   };
 
-  const generateRandomKey = () => {
-    return `${Date.now()}-${Math.floor(Math.random() * 1000)}+${Math.floor(Math.random() * 1000)}`;
+  const handleDeleteTeam = async () => {
+    if (teamToDelete) {
+      try {
+        await fetch(`http://localhost:5000/api/teams/delete/${teamToDelete}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        fetchTeams();
+      } catch (err) {
+        console.error("Error deleting team:", err);
+      }
+      setTeamToDelete(null);
+      onCloseTeam();
+    }
+  };
+
+  const TeamHeader = ({ team }: { team: Team }) => (
+    <Flex
+      p={4}
+      align="center"
+      bg="white"
+      borderRadius="md"
+      boxShadow="md"
+      _hover={{ boxShadow: "lg" }}
+      cursor="pointer"
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedTeam(selectedTeam === team.teamid ? null : team.teamid);
+      }}
+    >
+      <VStack align="start">
+        <HStack>
+          <Text fontSize="xl" fontWeight="bold">
+            {team.teamname}
+          </Text>
+          <Badge bg={team.is_admin ? "white" : "gray"} ml={2}>
+            {team.is_admin ? "Admin" : "Member"}
+          </Badge>
+        </HStack>
+        <Text fontSize="sm" color="gray.500">
+          Created: {new Date(team.createdat).toLocaleDateString()} • 
+          Tasks: {team.task_count} • 
+          Members: {team.members.length}
+        </Text>
+      </VStack>
+      <Spacer />
+      <HStack>
+        {team.teamname !== "My Tasks" && team.is_admin && (
+          <IconButton
+            size="sm"
+            aria-label="Delete team"
+            bg="red"
+            ml={"10"}
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTeamToDelete(team.teamid);
+              onOpenTeam();
+            }}
+          >
+          <DeleteIcon size="sm"/>
+          </IconButton>
+        )}
+      </HStack>
+    </Flex>
+  );
+  const TeamDetails = ({ team }: { team: Team }) => {
+    const [teamNameDraft, setTeamNameDraft] = useState(team.teamname);
+
+    return (
+      <VStack color={"black"} mt={4} p={4} bg="gray.50" borderRadius="md" align="stretch">
+        <HStack align="end">
+          <FormControl flex={1}>
+            <FormLabel>Team Name</FormLabel>
+            <HStack>
+              <Input
+                value={teamNameDraft}
+                onChange={(e) => setTeamNameDraft(e.target.value)}
+                disabled={!team.is_admin}
+              />
+              <Button
+                colorScheme="blue"
+                onClick={() => handleUpdateTeam(team.teamid, "teamName", teamNameDraft)}
+                disabled={!team.is_admin || teamNameDraft === team.teamname}
+              >
+                Save
+              </Button>
+            </HStack>
+          </FormControl>
+
+          <FormControl flex={1}>
+            <FormLabel>Team Leader</FormLabel>
+            <HStack>
+              <select
+                value={team.teamleaderemail}
+                onChange={(e) => {
+                  const updatedTeams = teams.map((t) =>
+                    t.teamid === team.teamid ? { ...t, teamleaderemail: e.target.value } : t
+                  );
+                  setTeams(updatedTeams);
+                }}
+                disabled={!team.is_admin}
+              >
+                {team.members.map((member) => (
+                  <option key={member.memberemail} value={member.memberemail}>
+                    {member.name} {member.last} ({member.memberemail})
+                  </option>
+                ))}
+              </select>
+              <Button
+                colorScheme="blue"
+                onClick={() => handleUpdateTeam(team.teamid, "newLeaderEmail", team.teamleaderemail)}
+                disabled={!team.is_admin}
+              >
+                Save
+              </Button>
+            </HStack>
+          </FormControl>
+        </HStack>
+
+        <VStack align="stretch">
+          <Text fontWeight="bold">Members</Text>
+          {team.is_admin && (
+            <HStack>
+              <Input
+                placeholder="Add member by email"
+                value={newMemberEmail}
+                onChange={(e) => setNewMemberEmail(e.target.value)}
+              />
+              <AddIcon
+                size="sm"
+                bgColor="white"
+                onClick={() => handleAddMember(team.teamid)}
+                disabled={!newMemberEmail.trim()}
+              >
+                Add Member
+              </AddIcon>
+            </HStack>
+          )}
+          
+          {team.members.map((member) => (
+            <Flex
+              key={member.memberemail}
+              p={2}
+              bg="white"
+              borderRadius="md"
+              align="center"
+              justify="space-between"
+            >
+              <Box>
+                <Text fontWeight="medium">{member.name} {member.last}</Text>
+                <Text fontSize="sm" color="gray.600">{member.memberemail}</Text>
+              </Box>
+              {team.is_admin && member.memberemail !== team.teamleaderemail && (
+                <IconButton
+                  aria-label="Remove member"
+                  bg="red"
+                  variant="ghost"
+                  onClick={() => {
+                    setMemberToRemove({ teamId: team.teamid, email: member.memberemail });
+                    onOpenMember();
+                  }}>
+                    <DeleteIcon size="sm"/>
+                    </IconButton>
+              )}
+            </Flex>
+          ))}
+        </VStack>
+      </VStack>
+    );
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <button
+    <Box p={8} maxW="4xl" mx="auto" color={"black"}>
+      <AddIcon
+        rounded="2xl"
+        size="lg"
+        width="15%"
+        height="8%"
         onClick={() => setShowCreateForm(!showCreateForm)}
-        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+        bgColor="white"
+        color={"green"}
+        mb={4}
       >
-        {showCreateForm ? "Cancel" : "Create New Team"}
-      </button>
+        {showCreateForm ? "Cancel Creation" : "Create New Team"}
+      </AddIcon>
 
+      {/* Create Team Form */}
       {showCreateForm && (
-        <div className="mb-8 p-4 border rounded">
-          <input
-            type="text"
-            value={newTeam.name}
-            onChange={(e) => setNewTeam({...newTeam, name: e.target.value})}
-            placeholder="Team name"
-            className="border p-2 w-full mb-2"
-          />
-          
-          {newTeam.members.map((email, index) => (
-            <div key={index} className="flex mb-2">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  const newMembers = [...newTeam.members];
-                  newMembers[index] = e.target.value;
-                  setNewTeam({...newTeam, members: newMembers});
-                }}
-                placeholder="Member email"
-                className="border p-2 flex-grow mr-2"
-              />
-              <button
-                onClick={() => setNewTeam({
-                  ...newTeam,
-                  members: newTeam.members.filter((_, i) => i !== index)
-                })}
-                className="bg-red-500 text-white px-3 py-1 rounded"
+        <VStack p={4} bg="white" boxShadow="md" borderRadius="md" align="stretch" mb={8}>
+          <FormControl>
+            <FormLabel>Team Name</FormLabel>
+            <Input
+              value={newTeam.name}
+              onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
+              placeholder="Enter team name"
+            />
+          </FormControl>
+
+          <FormControl>
+            <FormLabel>Team Members</FormLabel>
+            <VStack align="stretch" >
+              {newTeam.members.map((email, index) => (
+                <HStack key={index}>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      const newMembers = [...newTeam.members];
+                      newMembers[index] = e.target.value;
+                      setNewTeam({ ...newTeam, members: newMembers });
+                    }}
+                    placeholder="member@example.com"
+                  />
+                  <IconButton
+                    aria-label="Remove member"
+                    colorScheme="red"
+                    onClick={() => setNewTeam({
+                      ...newTeam,
+                      members: newTeam.members.filter((_, i) => i !== index)
+                    })}
+                  >
+                    <DeleteIcon size="sm"/>
+                    </IconButton>
+                </HStack>
+              ))}
+              <AddIcon 
+                size="sm"
+                onClick={() => setNewTeam({ ...newTeam, members: [...newTeam.members, ""] })}
+                variant="outline"
               >
-                Remove
-              </button>
-            </div>
-          ))}
-          
-          <button
-            onClick={() => setNewTeam({...newTeam, members: [...newTeam.members, ""]})}
-            className="bg-gray-200 px-4 py-2 rounded mb-2"
-          >
-            Add Member
-          </button>
-          
-          <button
+                Add Member
+              </AddIcon>
+            </VStack>
+          </FormControl>
+
+          <Button
             onClick={handleCreateTeam}
-            className="bg-green-500 text-white px-4 py-2 rounded block w-full"
+            colorScheme="green"
+            disabled={!newTeam.name.trim() || newTeam.members.some(e => !e.trim())}
           >
             Create Team
-          </button>
-        </div>
+          </Button>
+        </VStack>
       )}
 
-      {teams.map((team) => (
-        <div key={team.teamid} className="border p-4 mb-4 rounded-lg shadow-sm">
-          <div 
-            className="flex justify-between items-center cursor-pointer"
-            onClick={() => setSelectedTeam(selectedTeam === team.teamid ? null : team.teamid)}
-          >
-            <div>
-              <h3 className="text-xl font-bold">{team.teamname}</h3>
-              <p className="text-sm text-gray-600">
-                Created: {new Date(team.createdat).toLocaleDateString()} • 
-                Tasks: {team.task_count} • 
-                Members: {team.members ? team.members.length : 0}
-              </p>
-            </div>
-            <span className={`badge ${team.is_admin ? 'bg-blue-500' : 'bg-gray-300'} text-white px-2 py-1 rounded`}>
-              {team.is_admin ? "Admin" : "Member"}
-            </span>
-          </div>
-          
-          {selectedTeam === team.teamid && (
-            <div className="mt-4">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block font-bold mb-2">Team Name</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={team.teamname}
-                      onChange={(e) => handleUpdateTeam(team.teamid, 'teamName', e.target.value)}
-                      className="border p-2 flex-grow"
-                      disabled={!team.is_admin}
-                    />
-                    {team.is_admin && (
-                      <button
-                        onClick={() => handleUpdateTeam(team.teamid, 'teamName', team.teamname)}
-                        className="bg-blue-500 text-white px-4 py-2 rounded"
-                      >
-                        Save
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block font-bold mb-2">Team Leader</label>
-                  <select
-                    value={team.teamleaderemail}
-                    onChange={(e) => handleUpdateTeam(team.teamid, 'newLeaderEmail', e.target.value)}
-                    className="border p-2 w-full"
-                    disabled={!team.is_admin}
-                  >
-                    {team.members.map((member) => (
-                      <option key={member.memberemail} value={member.memberemail}>
-                        {member.name} {member.last} ({member.memberemail})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+      {/* Teams List */}
+      <VStack align="stretch">
+        {teams.map((team) => (
+          <Box key={team.teamid}>
+            <TeamHeader team={team} />
+            {selectedTeam === team.teamid && team.teamname !== "My Tasks" && (
+              <TeamDetails team={team} />
+            )}
+          </Box>
+        ))}
+      </VStack>
 
-              <h4 className="font-bold mb-2">Members:</h4>
-              {team.members.map((member, index) => (
-                <div key={`${team.teamid}-${member.memberemail}`} className="flex justify-between items-center mb-2 p-2 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">{member.name} {member.last}</p>
-                    <p className="text-sm text-gray-600">{member.memberemail}</p>
-                  </div>
-                  {team.is_admin && member.memberemail !== team.teamleaderemail && (
-                    <button
-                      onClick={() => confirmRemoveMember(team.teamid, member.memberemail)}
-                      className="bg-red-500 text-white px-3 py-1 rounded"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+      {/* Confirmation Modals */}
+      <Modal isOpen={isOpenMember} onClose={onCloseMember}>
+        <ModalOverlay />
+        <ModalContent
+          bg="white"
+          color="black"
+          width="25%"
+          position="fixed"
+          top="50%"
+          left="50%"
+          transform="translate(-50%, -50%)"
+        >
+          <ModalHeader>Remove Member</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            Are you sure you want to remove this member?
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onCloseMember}>
+              Cancel
+            </Button>
+            <Button colorScheme="red" onClick={handleRemoveMember}>
+              Remove
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isOpenTeam} onClose={onCloseTeam}>
+        <ModalOverlay />
+        <ModalContent bg={"white"} rounded={"2xl"} color={"black"} ml={"35%"} mt={"15%"} width="25%">
+          <ModalHeader color={"white"} bg={"red"}>Delete Team</ModalHeader>
+          <ModalCloseButton color={"white"} p={3} position="absolute" top="0rem" right="0rem" />
+          <ModalBody >
+            Are you sure you want to permanently delete this team?
+            <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onCloseTeam}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={handleDeleteTeam}>
+              Delete
+            </Button>
+            </ModalFooter>
+          </ModalBody>
+
+        </ModalContent>
+      </Modal>
+    </Box>
   );
 };
 
