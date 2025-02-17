@@ -335,7 +335,7 @@ const Tasks = () => {
             </Button>
           </Flex>
           <Flex wrap="wrap" gap={4}>
-            {groupedTasks[selectedTeam]
+            {(groupedTasks[selectedTeam] || [])
               .slice()
               .sort((a, b) => {
                 if (filterType === "priority") {
@@ -344,7 +344,6 @@ const Tasks = () => {
                     ToDo: 1,
                     Normal: 2,
                   };
-
                   return (
                     (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3) -
                     (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3)

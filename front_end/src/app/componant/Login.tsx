@@ -4,26 +4,24 @@ import React, { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useRouter } from 'next/navigation';
 import CreateAccount from './CreateAccount';
-import { FormControl } from '@chakra-ui/form-control';
-import {Center, Flex} from '@chakra-ui/react';
-import {FormLabel} from '@chakra-ui/form-control'
-import {useColorModeValue} from '@chakra-ui/color-mode'
+import { FormControl,FormLabel } from '@chakra-ui/form-control';
 import {
   Box,
   Button,
+  Center,
+  Flex,
   Heading,
   Input,
   Text,
   VStack,
 } from '@chakra-ui/react';
-import { url } from 'inspector';
+import { color } from 'framer-motion';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [section, setSection] = useState<'Login' | 'CreateAccount'>('Login');
   const router = useRouter();
-  const [bgColor, setBgColor] = useState("yellow.600");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,120 +70,108 @@ const Login = () => {
         display="inline-block"
         animation="alternateColorSize 5s infinite"
         animationDelay={`${index * 0.1}s`}
+        color="white"
       >
         {char}
       </Text>
     ));
 
-    const handleHover = () => {
-      setBgColor("yellow.500");
-    };
-
-    const handleLeave= ()=>{
-      setBgColor("yellow.600")
-    }
-
-
-
-
   return (
-      // <Box
-
-      <Flex
-        direction="column"
-        align="center"
-        justify="center"
-        minH="100vh"
-        bgImage="url('/back.png')"
-        bgSize="cover"
-        bgRepeat="no-repeat"
-        p={4}
-      >
-
-      
-      <Heading as="h1" size="4xl" fontSize={"4xl"} mb={6} fontFamily="serif">
+    <Flex
+      direction="column"
+      align="center"
+      justify="center"
+      minH="100vh"
+      bgImage="url('/back.png')"
+      bgSize="cover"
+      bgRepeat="no-repeat"
+      p={4}
+    >
+      <Heading as="h1" fontSize={"4xl"} size="4xl" mb={6} fontFamily="serif">
         {animatedText('Change Your Life')}
       </Heading>
 
+      <Center w="full">
+        {section === 'Login' ? (
+          <Box
+            as="form"
+            onSubmit={handleSubmit}
+            bg="white"
+            p={6}
+            color={"black"}
+            rounded="lg"
+            shadow="lg"
+            w="1/5"
+          >
+            <VStack>
+              <Heading size="xl" fontSize={"2xl"} textAlign="center" color="yellow.600">
+                Login
+              </Heading>
+
+              <FormControl>
+                <FormLabel>Email</FormLabel>
+                <Input
+                  type="email"
+                  color="black"
+                  placeholder="Email"
+                  _placeholder={{ color: "white" }}
+                  bg={"gray.300"}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Password</FormLabel>
+                <Input
+                  color={"black"}
+                  type="password"
+                  bg={"gray.300"}
+                  placeholder="Password"
+                  _placeholder={{ color: "white" }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </FormControl>
+
+              <Button
+                mt={"10%"}
+                type="submit"
+                color={"white"}
+                bg="yellow.600"
+                width="full"
+              >
+                Login
+              </Button>
+
+              <Button
+                variant="outline"
+                color={"white"}
+                bg="yellow.600"
+                width="full"
+                onClick={() => setSection('CreateAccount')}
+              >
+                Create Account?
+              </Button>
+            </VStack>
+          </Box>
+        ) : (
+          <CreateAccount setSection={setSection} />
+        )}
+      </Center>
+
       {section === 'Login' && (
-        <Box
-          as="form"
-          onSubmit={handleSubmit}
-          p="4"
-          rounded="md"
-          shadow="md"
-          w="1/4"
-
-        >
-          <Heading as="h2" size="3xl" mb={6} textAlign="center" color="white" fontSize={"4xl"} fontFamily="serif">
-            Login
-          </Heading>
-          <VStack w={"full"} >
-            <FormControl w={"inherit"}>
-              <Heading  bg={"yellow.600"} fontSize={"2xl"} fontFamily="serif">Email</Heading>
-              <Input
-                color={"black"}
-                type="email"
-                placeholder="Email"
-                w={"full"}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </FormControl>
-            <FormControl w={"inherit"}>
-              <Heading bg={"yellow.600"} fontSize={"2xl"} fontFamily="serif">Password</Heading>
-              <Input
-                color={"black"}
-                type="password"
-                placeholder="Password"
-                bg={bgColor}
-                value={password}
-                w={"full"}
-                onChange={(e) => setPassword(e.target.value)}
-                _placeholder={{ color: "inherit" }}
-              />
-            </FormControl>
-            <Button
-              type="submit"
-              colorScheme="yellow"
-              bg="yellow.600"
-              w="36"
-              mt={6}
-              _hover={{ bg: "yellow.500" }}
-            >
-              Login
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              bg="yellow.600"
-              w="36"
-              onClick={() => setSection('CreateAccount')}
-              _hover={{ bg: "yellow.500" }}
-            >
-              Create Account?
-            </Button>
-          </VStack>
-        </Box>
-      )}
-
-      {section === 'CreateAccount' && <CreateAccount />}
-
-      {section === 'Login' && (
-        <Flex mt={6} w="full" maxW="md" justify="center">
+        <Center mt={6} w="full">
           <Button
             onClick={() => handleGoogleLogin()}
             bg="yellow.600"
-            w="44"
-            mb={4}
-            _hover={{ bg: "yellow.500" }}
+            w="1/5"
           >
             Sign in with Google
           </Button>
-        </Flex>
+        </Center>
       )}
     </Flex>
-
   );
 };
 

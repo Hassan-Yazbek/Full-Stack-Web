@@ -71,7 +71,7 @@ const TodaysWork: React.FC = () => {
 
   return (
     <Box p={6} maxW="5xl" mx="auto">
-      <Heading as="h1" size="xl" textAlign="center" mb={6}>
+      <Heading fontSize={"5xl"} size="3xl" color={"black"} textAlign="center" mb={6}>
         Today's Tasks
       </Heading>
       {tasks.length === 0 ? (
@@ -79,45 +79,46 @@ const TodaysWork: React.FC = () => {
           No tasks for today!
         </Text>
       ) : (
-        <SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }}>
-          {tasks.map((task) => (
-            <CardRoot
-              key={task.taskid}
-              bg={"white"}
-              boxShadow="md"
-              transition="all 0.2s"
-            >
-              <CardBody>
-                <Heading  color={"black"} fontSize="xl" mb={2}>
-                  {task.taskname}
-                </Heading>
-                <Text color="gray.600">
-                  <strong>Team:</strong> {task.teamname}
-                </Text>
-                <Text color="gray.600">
-                  <strong>Start:</strong> {task.startdate.slice(0, 10)}
-                </Text>
-                <Text color="gray.600">
-                  <strong>End:</strong> {task.enddate.slice(0, 10)}
-                </Text>
-                <Flex mt={4} align="center" justify="space-between">
-                  <TagRoot
-                    size="md"
-                    colorScheme={
-                      task.priority === "Important"
-                        ? "red"
-                        : task.priority === "ToDo"
-                        ? "yellow"
-                        : "green"
-                    }
-                  >
-                    {task.priority}
-                  </TagRoot>
-                </Flex>
-              </CardBody>
-            </CardRoot>
-          ))}
-        </SimpleGrid>
+        <SimpleGrid mt={"15%"} columns={{ base: 1, sm: 2, lg: 3 }}>
+        {tasks.map((task) => (
+          <CardRoot
+            key={task.taskid || `${task.teamname}-${task.taskname}`} // Ensure uniqueness
+            bg={"white"}
+            boxShadow="md"
+            transition="all 0.2s"
+          >
+            <CardBody>
+              <Heading color={"black"} fontSize="xl" mb={2}>
+                {task.taskname}
+              </Heading>
+              <Text color="gray.600">
+                <strong>Team:</strong> {task.teamname}
+              </Text>
+              <Text color="gray.600">
+                <strong>Start:</strong> {task.startdate.slice(0, 10)}
+              </Text>
+              <Text color="gray.600">
+                <strong>End:</strong> {task.enddate.slice(0, 10)}
+              </Text>
+              <Flex mt={4} align="center" justify="space-between">
+                <TagRoot
+                  size="md"
+                  colorScheme={
+                    task.priority === "Important"
+                      ? "red"
+                      : task.priority === "ToDo"
+                      ? "yellow"
+                      : "green"
+                  }
+                >
+                  {task.priority}
+                </TagRoot>
+              </Flex>
+            </CardBody>
+          </CardRoot>
+        ))}
+      </SimpleGrid>
+
       )}
     </Box>
   );

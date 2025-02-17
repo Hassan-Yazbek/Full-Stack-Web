@@ -221,7 +221,7 @@ export const deleteTeam = async (req: Request, res: Response) => {
     for (const row of tasksResult.rows) {
       await pgPool.query("DELETE FROM team_tasks WHERE taskid = $1", [row.taskid]);
     }
-
+    await pgPool.query("DELETE FROM inbox WHERE teamid = $1", [teamId]);
     await pgPool.query("DELETE FROM tasks WHERE teamid = $1", [teamId]);
     await pgPool.query("DELETE FROM team_members WHERE teamid = $1", [teamId]);
     await pgPool.query("DELETE FROM teams WHERE teamid = $1", [teamId]);

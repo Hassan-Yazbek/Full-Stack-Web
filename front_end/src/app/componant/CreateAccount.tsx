@@ -1,8 +1,18 @@
 import React, { useState } from "react";
-import Login from "./Login"; // Import your Login component
+import { FormControl,FormLabel } from "@chakra-ui/form-control";
+import { 
+  Box, 
+  Button, 
+  Center, 
+  Flex, 
+  Heading, 
+  Input, 
+  Text,
+  VStack,
+} from "@chakra-ui/react";
+import Login from "./Login"; // Ensure Login is also using Chakra UI
 
-const CreateAccount = () => {
-  const [section, setSection] = useState<'Login' | 'CreateAccount'>('CreateAccount');
+const CreateAccount = ({ setSection }: { setSection: (section: 'Login' | 'CreateAccount') => void }) => {
   const [formData, setFormData] = useState({
     name: "",
     last: "",
@@ -19,7 +29,6 @@ const CreateAccount = () => {
     setFormData({ ...formData, [name]: value });
     setError("");
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -96,85 +105,102 @@ const CreateAccount = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-fit bg-gray-100 text-black">
-      {section === 'CreateAccount' ? (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white p-6 rounded-lg shadow-lg w-96 space-y-4"
-        >
-          <h1 className="text-2xl font-bold text-center mb-4 text-yellow-600">
+    <Center w="full">
+      <Box 
+        as="form" 
+        onSubmit={handleSubmit}
+        bg="white"
+        p={6}
+        rounded="lg"
+        shadow="lg"
+        color={"black"}
+        w="1/5"
+      >
+        <VStack w={"full"}>
+          <Heading size="xl" textAlign="center" color="yellow.600">
             Create Account
-          </h1>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <div>
-            <label className="block text-gray-700">First Name</label>
-            <input
+          </Heading>
+
+          {error && <Text color="red.500">{error}</Text>}
+
+          <FormControl w={"inherit"}>
+            <FormLabel>First Name</FormLabel>
+            <Input
               type="text"
               name="name"
               value={formData.name}
+              bg={"gray.100"}
               onChange={handleChange}
-              placeholder="Enter your first name"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-yellow-500"
             />
-          </div>
-          <div>
-            <label className="block text-gray-700">Last Name</label>
-            <input
+          </FormControl>
+
+          <FormControl w={"inherit"}>
+            <FormLabel>Last Name</FormLabel>
+            <Input
               type="text"
               name="last"
+              bg={"gray.100"}
               value={formData.last}
               onChange={handleChange}
-              placeholder="Enter your last name"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-yellow-500"
             />
-          </div>
-          <div>
-            <label className="block text-gray-700">Email</label>
-            <input
+          </FormControl>
+
+          <FormControl w={"inherit"}>
+            <FormLabel>Email</FormLabel>
+            <Input
               type="email"
               name="email"
+              bg={"gray.100"}
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter your email"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-yellow-500"
             />
-          </div>
-          <div>
-            <label className="block text-gray-700">Password</label>
-            <input
+          </FormControl>
+
+          <FormControl w={"inherit"}>
+            <FormLabel>Password</FormLabel>
+            <Input
               type="password"
               name="password"
+              bg={"gray.100"}
               value={formData.password}
               onChange={handleChange}
-              placeholder="Enter your password"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-yellow-500"
             />
-          </div>
-          <div>
-            <label className="block text-gray-700">Confirm Password</label>
-            <input
+          </FormControl>
+
+          <FormControl w={"inherit"}>
+            <FormLabel>Confirm Password</FormLabel>
+            <Input
               type="password"
               name="confirmPassword"
+              bg={"gray.100"}
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="Confirm your password"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-yellow-500"
             />
-          </div>
-          <button
+          </FormControl>
+
+          <Button
+            mt={"5%"}
+            color={"white"}
             type="submit"
-            className={`w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors ${
-              isLoading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            disabled={isLoading}
+            bg="yellow.600"
+            width="full"
+            loadingText="Creating..."
           >
-            {isLoading ? "Creating..." : "Create Account"}
-          </button>
-        </form>
-      ) : (
-        <Login /> // Render the Login component if section is 'Login'
-      )}
-    </div>
+            Create Account
+          </Button>
+
+          <Button
+            mt={"5%"}
+            color={"white"}
+            width="full"
+            bg="yellow.600"
+            onClick={() => setSection('Login')}
+          >
+            Already have an account? Login
+          </Button>
+        </VStack>
+      </Box>
+    </Center>
   );
 };
 

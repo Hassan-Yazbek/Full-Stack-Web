@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { IoMdSend } from 'react-icons/io';
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { Box, Input, Button, IconButton, Text, Flex } from '@chakra-ui/react';
+import { HiUserGroup } from "react-icons/hi";
 
 interface Message {
   inboxid: number;
@@ -164,8 +165,8 @@ const Inbox = () => {
             _hover={{ bg: "gray.100" }}
             onClick={() => setSelectedTeam(team.teamid.toString())}
           >
-            <Box w="40px" h="40px" borderRadius="full" bg="gray.300" display="flex" alignItems="center" justifyContent="center">
-              🏆
+            <Box w="40px" h="40px" borderRadius="full" bg="black" display="flex" alignItems="center" justifyContent="center">
+            <HiUserGroup />
             </Box>
             <Text fontSize="lg" fontWeight="bold" color="black">{team.teamname}</Text>
           </Flex>

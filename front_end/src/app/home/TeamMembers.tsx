@@ -245,10 +245,12 @@ const Teams = () => {
             </HStack>
           </FormControl>
 
-          <FormControl flex={1}>
+          <FormControl color={"black"} flex={1}>
             <FormLabel>Team Leader</FormLabel>
             <HStack>
+              
               <select
+                style={{background:"white"}}
                 value={team.teamleaderemail}
                 onChange={(e) => {
                   const updatedTeams = teams.map((t) =>
@@ -329,18 +331,20 @@ const Teams = () => {
 
   return (
     <Box p={8} maxW="4xl" mx="auto" color={"black"}>
-      <AddIcon
-        rounded="2xl"
-        size="lg"
-        width="15%"
-        height="8%"
-        onClick={() => setShowCreateForm(!showCreateForm)}
-        bgColor="white"
-        color={"green"}
-        mb={4}
-      >
-        {showCreateForm ? "Cancel Creation" : "Create New Team"}
-      </AddIcon>
+      <HStack mb={4}>
+        <Text fontSize="2xl" fontWeight="bold">
+          Create New Team?
+        </Text>
+        <IconButton
+          aria-label={showCreateForm ? "Cancel Creation" : "Create New Team"}
+          size="lg"
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          bgColor="white"
+          color="yellow.600"
+        >
+        <AddIcon size="2xl"/>
+        </IconButton>
+      </HStack>
 
       {/* Create Team Form */}
       {showCreateForm && (
