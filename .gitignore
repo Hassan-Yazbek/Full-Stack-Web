@@ -41,3 +41,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 back_end/src/.env
+back_end/src/.env
