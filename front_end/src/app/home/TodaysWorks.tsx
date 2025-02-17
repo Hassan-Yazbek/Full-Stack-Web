@@ -88,7 +88,7 @@ const TodaysWork: React.FC = () => {
               transition="all 0.2s"
             >
               <CardBody>
-                <Heading fontSize="xl" mb={2}>
+                <Heading  color={"black"} fontSize="xl" mb={2}>
                   {task.taskname}
                 </Heading>
                 <Text color="gray.600">
