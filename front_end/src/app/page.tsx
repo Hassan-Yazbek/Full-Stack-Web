@@ -12,7 +12,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '632397976693-l7skgqivjnu159ahd4d38pkj2lh10ee8.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
