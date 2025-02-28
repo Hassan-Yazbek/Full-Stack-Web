@@ -12,7 +12,7 @@ const Header: React.FC = () => {
             </a>
           </li>
           <li>
-            <a href="/tasks" className="hover:underline">
+            <a href="./Tasks" className="hover:underline">
               Tasks
             </a>
           </li>
