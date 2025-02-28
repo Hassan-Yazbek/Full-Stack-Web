@@ -12,79 +12,88 @@ import Inbox from './Inbox';
 import Team from './TeamMembers';
 import Tasks from './Tasks';
 import TodaysWork from './TodaysWorks';
+import { 
+  Box, 
+  Flex, 
+  List, 
+  ListItem, 
+  Icon, 
+  Text, 
+} from '@chakra-ui/react';
 
 const Home = () => {
   const [activeSection, setActiveSection] = useState<string>("Welcome");
-
-  // Handler to switch between sections
   const handleSectionChange = (section: string) => {
     setActiveSection(section);
   };
 
   return (
-    <div>
-      <main className="relative flex flex-col min-h-screen">
-        {/* Header */}
-        <Header />
+    <Flex direction="column" minH="100vh" bg={"white"}>
+      <Header page="home" />
 
-        <div className=" flex-grow flex">
-          {/* Sidebar */}
-          <div className="mt-16 fixed bg-gray-200 w-80 h-full float-left">
-            <ul className="pl-5">
-              <li
-                className="flex  gap-2 text-yellow-600 hover:text-yellow-800 cursor-pointer p-5"
-                onClick={() => handleSectionChange("Add Task")}
+      <Flex flex={1} mt={16}> {/* mt=16 to account for fixed header height */}
+        {/* Sidebar */}
+        <Box
+          position="fixed"
+          left={0}
+          w="320px"
+          h="full"
+          color={"yellow.600"}
+          bg={"gray.100"}
+          p={5}
+        >
+        <Box>
+          <List.Root>
+            {[
+              { section: "Add Task", icon: GrAddCircle },
+              { section: "Inbox", icon: IoChatboxOutline },
+              { section: "Tasks", icon: FaTasks },
+              { section: "Team Members", icon: RiTeamLine },
+              { section: "Today's Work", icon: BsCalendar2Date }
+            ].map(({ section, icon }) => (
+              <ListItem
+                key={section}
+                display="flex"
+                alignItems="center"
+                gap={3}
+                color={"yellow.600"}
+                cursor="pointer"
+                mb={5}
+                p={2}
+                _hover={{ bg: "yellow.200", borderRadius: "md" }}
+                onClick={() => handleSectionChange(section)}
               >
-                <GrAddCircle size={20} />
-                <span>Add Task</span>
-              </li>
-              <li
-                className="flex  gap-2 text-yellow-600 hover:text-yellow-800 cursor-pointer p-5"
-                onClick={() => handleSectionChange("Inbox")}
-              >
-                <IoChatboxOutline size={20} />
-                <span>Inbox</span>
-              </li>
-              <li
-                className="flex  gap-2 text-yellow-600 hover:text-yellow-800 cursor-pointer p-5"
-                onClick={() => handleSectionChange("Tasks")}
-              >
-                <FaTasks size={20} />
-                <span>Tasks</span>
-              </li>
-              <li
-                className="flex  gap-2 text-yellow-600 hover:text-yellow-800 cursor-pointer p-5"
-                onClick={() => handleSectionChange("Team Members")}
-              >
-                <RiTeamLine size={20} />
-                <span>Team Members</span>
-              </li>
-              <li
-                className="flex  gap-2 text-yellow-600 hover:text-yellow-800 cursor-pointer p-5"
-                onClick={() => handleSectionChange("Today's Work")}
-              >
-                <BsCalendar2Date size={20} />
-                <span>Today's Work</span>
-              </li>
-            </ul>
-          </div>
+                <Icon as={icon} boxSize={5} />
+                <Text fontSize="lg">{section}</Text>
+              </ListItem>
+            ))}
+          </List.Root>
+        </Box>
 
-          <div className="mt-16  ml-80 bg-yellow-500 flex flex-grow">
-            {activeSection === "Welcome" && (
-              <h1 className="text-yellow-600 text-3xl">Welcome!</h1>
-            )}
-            {activeSection === "Add Task" && <AddTask />}
-            {activeSection === "Inbox" && <Inbox />}
-            {activeSection === "Tasks" && <Tasks />} 
-            {activeSection === "Team Members" && <Team />}
-            {activeSection === "Today's Work" && <TodaysWork />}
-          </div>
-        </div>
+        </Box>
 
-        {/* Footer */}
-        <Footer  />
-      </main>
-    </div>
+        {/* Main Content */}
+        <Box
+          ml="320px" // Match sidebar width
+          flex={1}
+          bg="white"
+          minH="calc(100vh - 64px)" // Adjust for header height
+        >
+          {activeSection === "Welcome" && (
+            <Text fontSize="3xl" color="yellow.600" fontWeight="bold">
+              Welcome!
+            </Text>
+          )}
+          {activeSection === "Add Task" && <AddTask />}
+          {activeSection === "Inbox" && <Inbox />}
+          {activeSection === "Tasks" && <Tasks />}
+          {activeSection === "Team Members" && <Team />}
+          {activeSection === "Today's Work" && <TodaysWork />}
+        </Box>
+      </Flex>
+
+      <Footer />
+    </Flex>
   );
 };
 

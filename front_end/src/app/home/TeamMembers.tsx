@@ -171,6 +171,24 @@ const Teams = () => {
     }
   };
 
+  const handleLeaveTeam = async (teamId: number) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/teams/${teamId}/leave`, {
+        method: "PUT",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        fetchTeams();
+        showSuccess("You have left the team successfully!");
+      } else {
+        showError("Failed to leave the team.");
+      }
+    } catch (err) {
+      showError("Error leaving the team.");
+    }
+  };
+
   const TeamHeader = ({ team }: { team: Team }) => (
     <Flex
       p={4}
@@ -325,6 +343,14 @@ const Teams = () => {
             </Flex>
           ))}
         </VStack>
+        {!team.is_admin && (
+        <Button
+          bg="red"
+          onClick={() => handleLeaveTeam(team.teamid)}
+        >
+          Leave Team
+        </Button>
+      )}
       </VStack>
     );
   };

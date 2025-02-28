@@ -232,3 +232,28 @@ export const deleteTeam = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to delete team" });
   }
 };
+
+export const leaveTeam = async (req: Request, res: Response) => {
+  const { teamId } = req.params;
+  const email = req.session.user?.email; // Ensure user session exists
+
+  if (!email) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const leave = await pgPool.query(
+      "DELETE FROM team_members WHERE teamid = $1 AND memberemail = $2 RETURNING *",
+      [teamId, email]
+    );
+
+    if (typeof leave.rowCount === "number" && leave.rowCount > 0) {
+      return res.status(200).json({ message: "Successfully left the team" });
+    } else {
+      return res.status(404).json({ message: "You are not part of this team" });
+    }
+  } catch (err) {
+    console.error("Error leaving team:", err);
+    return res.status(500).json({ message: "Error leaving the team" });
+  }
+};

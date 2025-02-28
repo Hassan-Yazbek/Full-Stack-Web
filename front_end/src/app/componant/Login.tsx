@@ -5,6 +5,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { useRouter } from 'next/navigation';
 import CreateAccount from './CreateAccount';
 import { FormControl,FormLabel } from '@chakra-ui/form-control';
+import { useAuth } from '../AuthContext';
 import {
   Box,
   Button,
@@ -15,13 +16,13 @@ import {
   Text,
   VStack,
 } from '@chakra-ui/react';
-import { color } from 'framer-motion';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [section, setSection] = useState<'Login' | 'CreateAccount'>('Login');
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +35,7 @@ const Login = () => {
       });
 
       if (response.ok) {
+        login();
         router.push("/home");
       } else {
         console.error('Authentication failed:', await response.json());
@@ -54,6 +56,7 @@ const Login = () => {
         body: JSON.stringify({ code: response.code }),
       });
       if (res.ok) {
+        login();
         router.push("/home");
       }
     },
